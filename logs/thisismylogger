@@ -1,0 +1,21 @@
+2021-05-24 09:27:04,598 - root - WARNING - hey there
+2021-05-24 09:27:28,252 - root - WARNING - hey there
+2021-05-24 09:27:34,674 - root - WARNING - then
+2021-05-24 09:34:06,357 - thisismylogger - WARNING - only warnings logged
+2021-05-24 09:36:08,908 - thisismylogger - WARNING - log again
+2021-05-24 09:39:21,275 - thisismylogger - WARNING - log again2
+2021-05-24 09:39:25,610 - thisismylogger - WARNING - log again3
+2021-05-24 09:41:27,440 - root - WARNING - what this is not logged
+2021-05-24 09:42:24,018 - thisismylogger - INFO - just log then
+2021-05-24 09:42:28,299 - thisismylogger - INFO - whatever
+2021-05-24 09:45:00,019 - thisismylogger - INFO - just log then
+2021-05-24 09:45:00,706 - thisismylogger - WARNING - log again3
+2021-05-24 09:45:28,420 - thisismylogger - INFO - hi there
+2021-05-24 09:45:31,730 - root - WARNING - what this is not logged
+2021-05-24 09:45:33,244 - thisismylogger - INFO - whatever
+2021-05-24 09:50:20,753 - thisismylogger - WARNING - log again3
+2021-05-24 09:50:23,694 - thisismylogger - INFO - just log then
+2021-05-24 09:51:37,204 - thisismylogger - INFO - just log then
+2021-05-24 09:51:43,659 - thisismylogger - INFO - just log then123
+2021-05-24 09:53:12,318 - thisismylogger - INFO - just log then123
+2021-05-24 09:59:04,628 - root - DEBUG - whatever

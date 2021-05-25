@@ -1,0 +1,24 @@
+only warnings logged
+log again
+log again2
+log again3
+just log then
+whatever
+just log then
+log again3
+hi there
+whatever
+whatever
+log again3
+log again3
+2021-05-24 09:50:20,753 - thisismylogger - WARNING - log again3
+just log then
+just log then
+2021-05-24 09:50:23,694 - thisismylogger - INFO - just log then
+just log then
+just log then
+2021-05-24 09:51:37,204 - thisismylogger - INFO - just log then
+just log then123
+just log then123
+2021-05-24 09:51:43,659 - thisismylogger - INFO - just log then123
+2021-05-24 09:53:12,318 - thisismylogger - INFO - just log then123
