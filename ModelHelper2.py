@@ -15,6 +15,7 @@ from hyperopt import fmin, tpe, hp, Trials
 from ray import tune
 from ray.tune.suggest.hyperopt import HyperOptSearch
 from ray.tune.schedulers import ASHAScheduler
+from ray.tune.suggest import ConcurrencyLimiter
 
 
 from tqdm.notebook import tqdm
@@ -39,15 +40,11 @@ loggermyNeuralHyperTunner = myLoggers.myNeuralHyperTunner
 class myNeural(nn.Module, tune.Trainable):
 
     def __init__(self, 
-                config: dict = {
-                    'input_shape':(20,20),
-                    'hidden_size': 256,
-                    'act_func_1': nn.ReLU,
-                    'act_func_2': nn.ReLU
-                }, 
+                config: dict = None, 
                  **kwargs):
 
         """myNeural is a neural network with 1 dense hidden layer
+        if no config is given
 
         Config (dict):
             input_shape (tuple, optional)   : a tuple of shape for *each* instance of input, 
@@ -62,8 +59,16 @@ class myNeural(nn.Module, tune.Trainable):
         kwards: arguments that are present in the config, these keyword args will overwrite the
                 config 
         """
+        configDefault: dict = {
+            'input_shape':(20,20),
+            'hidden_size': 256,
+            'act_func_1': nn.ReLU,
+            'act_func_2': nn.ReLU
+        }
 
-        self.config = config
+        self.config = configDefault
+        # update the config using config provided
+        self.config.update((k, config[k]) for k in config.keys() & configDefault.keys())
         # update the config if any kwargs are specified
         self.config.update((k, kwargs[k]) for k in config.keys() & kwargs.keys())
 
@@ -96,14 +101,13 @@ class myNeural(nn.Module, tune.Trainable):
 
 
 ##     def step(self):
-
     def optimise(self, 
-                trainData: Dataset, testData: Dataset,
-                config:dict = {
-                    'lossFunction': nn.BCEWithLogitsLoss, 
-                    'optimiser': torch.optim.SGD, 'lr': 0.1,
-                    'epoch': 2, 'batch_size': 128
-                },
+
+                trainData: Dataset,
+                testData: Dataset,
+
+                config:dict = None,
+                hyperTuning = False,
                 hideEpochProgressBar = True,
                 hideBatchProgressBar = True):
         """This method optimise this model according to the parameter
@@ -117,23 +121,54 @@ class myNeural(nn.Module, tune.Trainable):
             config (dict, optional)                 : 
                                                     Must contain epoch and batch_size for config. 
                                                     Defaults to { 'epoch': 2, 'batch_size': 128 }.
-            lossFunction ([type], optional)         : [description]. Defaults to nn.BCEWithLogitsLoss.
-            optimiser ([type], optional)            : [description]. Defaults to torch.optim.SGD.
-            lr (float, optional)                    : Learning Rate. Defaults to 0.1.
+                                                    epoch (int, optional)                   :
+                                                    batch_size (int, optional)              :                                     
+                                                    lossFunction ([type], optional)         : [description]. Defaults to nn.BCEWithLogitsLoss.
+                                                    optimiser ([type], optional)            : [description]. Defaults to torch.optim.SGD.
+                                                    lr (float, optional)                    : Learning Rate. Defaults to 0.1.
+
+            hyperTuning (Boolean, optional)         : When not doing hyperTuning, tune.report will trigger an error
+                                                     Do not need to adjust this parameter, hyperTune classmethod 
+                                                     will change this method automatically, user is not expected 
+                                                     to use this parameter
             hideEpochProgressBar                    : [description]
             hideBatchProgressBar                    : [description]
         """
         # device = "cuda" if torch.cuda.is_available() else "cpu"
+        loggermyNeuralHyperTunner.debug(f'hyperTuning: {hyperTuning}, optimisation start')
+
+        defaultConfig = {
+                    'lossFunction': nn.BCEWithLogitsLoss, 
+                    'optimiser': torch.optim.SGD, 'lr': 0.1,
+                    'epoch': 2, 'batch_size': 128
+                }
+
+        if config:
+            # if config is provided, overwrite the defaultConfig using config
+            defaultConfig.update((k, config[k]) for k in config.keys() & defaultConfig.keys())
+        config = defaultConfig
+        loggermyNeuralHyperTunner.debug(f'hyperTuning: {hyperTuning}, config defined')
+
+        # loggermyNeuralHyperTunner.debug(f"config: {config}")
+        # loggermyNeuralHyperTunner.debug(f"epoch: {config['epoch']}")
+
         epoch = config['epoch']
         batch_size = config['batch_size']
+        batch_size = int(batch_size)
+        loggermyNeuralHyperTunner.debug(f'batch_size:{batch_size}, type: {type(batch_size)}')
+
         lossFunction = config['lossFunction']()
         lr = config['lr']
         optimiser = config['optimiser'](self.parameters(), lr = lr)
-        
-        trainLoader = DataLoader(trainData, 
-                                batch_size= batch_size, 
-                                shuffle=True)
+        loggermyNeuralHyperTunner.debug(f'hyperTuning: {hyperTuning}, optimiser defined')
+
+        loggermyNeuralHyperTunner.debug(testData)
         testX, testY = testData.X, testData.Y
+        loggermyNeuralHyperTunner.debug(f'hyperTuning: {hyperTuning}, data loaded')
+
+        trainLoader = DataLoader(trainData, 
+                                batch_size= batch_size)
+                                # shuffle=True)
 
         for epoch in tqdm(range(epoch), 
                             desc = 'Epoch', 
@@ -145,19 +180,25 @@ class myNeural(nn.Module, tune.Trainable):
                                 leave = False,
                                 disable=hideBatchProgressBar)
             for batch, (x, y) in per_epoch_bar:
+
+                loggermyNeuralHyperTunner.debug(f'hyperTuning: {hyperTuning}, begin an epoch')
                 #self.step()
                 # x, y = x.to(device), y.to(device)
 
                 # set to training mode
                 self.train()
                 optimiser.zero_grad()
+                loggermyNeuralHyperTunner.debug(f'hyperTuning: {hyperTuning}, zero grad')
+
                 # "forward" and produce output
                 pred = self.__call__(x)
                 loss = lossFunction(pred, y)
+                loggermyNeuralHyperTunner.debug(f'hyperTuning: {hyperTuning}, forwarding')
 
                 # backward
                 loss.backward() # compute gradient
                 optimiser.step() # move by lr
+                loggermyNeuralHyperTunner.debug(f'hyperTuning: {hyperTuning}, taking a step')
 
                 pred = (pred>0).float()
                 trainacc = (pred == y).sum()/len(y)
@@ -179,12 +220,15 @@ class myNeural(nn.Module, tune.Trainable):
                 self.stats['testAcc'].append(testAcc)
 
                 # tune tracking
-                tune.report(
-                    trainAcc=trainacc,
-                    testAcc = testAcc,
-                    # penalise the testAcc if the value is too different
-                    testAccReg = testAcc -abs(trainacc - testAcc) 
-                    )
+                if hyperTuning:
+                    loggermyNeuralHyperTunner.debug("Step completed, reporting to tune")
+                    tune.report(
+                        _metric = testAcc,
+                        trainAcc=trainacc,
+                        testAcc = testAcc,
+                        # penalise the testAcc if the value is too different
+                        testAccReg = testAcc -abs(trainacc - testAcc) 
+                        )
 
 
                 desc = f"Batch {batch} -- TrainLoss: {loss:0.5} -- TrainAcc: {trainacc:0.5%} -- TestAcc: {testAcc:0.5%}"
@@ -221,7 +265,7 @@ class myNeural(nn.Module, tune.Trainable):
 
         # regulrise if the deviation from the TrainAcc is too high
         # ignore the first 100 computations
-        # after 100 iterations, the peformance for Test/Train should ideally be similar
+        # after 100 iterations, the peformance for Test/Train should ideally be similarµ
         dev, c = 0, 0
         accTrain = self.stats['trainAcc']
         accTest = self.stats['testAcc']
@@ -260,23 +304,52 @@ class myNeural(nn.Module, tune.Trainable):
         plt.grid(True)
         plt.ylim(0,1)
 
+    # for some reason, the class method is not over-written
     @classmethod
-    def fitTrain(cls, config:dict) -> None:
-        """FitTrain simulates the entire process
-        of constructing a model and optimising it
-        and in the process recording the performance metrics.
-        This is a classmethod for hyperTuner, so that it is able
-        to gather the best config
+    def fitTrainGenerator(cls, trainData, testData):
 
-        Args:
-            config (dict): [description]
+        def fitTrain(config:dict) -> None:
+            """FitTrain simulates the entire process
+            of constructing a model and optimising it
+            and in the process recording the performance metrics.
+            This is a classmethod for hyperTuner, so that it is able
+            to gather the best config
 
-        Returns:
-            [type]: [description]
-        """
-        # construction
-        model = cls(config)
-        model.optimise(cls.trainData, cls.testData, config)
+            Args:
+                config (dict): [description]
+
+            Returns:
+                [type]: [description]
+            """
+            # logging ignore this
+            loggermyNeuralHyperTunner.debug('Start Fit-Train')
+            # trainDataPresence=cls.__dict__.get('trainData', 'Not present')
+            # trainDataPresence = 'Present' if trainDataPresence != 'Not present' else trainDataPresence
+            # testDataPresence=cls.__dict__.get('testData', 'Not present')
+            # testDataPresence = 'Present' if testDataPresence != 'Not present' else testDataPresence
+
+            # loggermyNeuralHyperTunner.debug('Start Tuning')
+            # loggermyNeuralHyperTunner.debug(f'trainData: {cls.trainData}; testData: {cls.testData}')
+
+            # batch_size = config['batch_size']
+            # trainLoader = cls.trainLoader
+            # loggermyNeuralHyperTunner.debug('fitTrain: trainLoader in position')
+            # trainLoader = DataLoader(cls.trainData, 
+            #                        batch_size= batch_size, 
+            #                        shuffle=True)
+
+            # construction
+
+            model = cls(config)
+            model.optimise(trainData, testData, config, hyperTuning=True)
+
+        return fitTrain
+
+    # initialising class attribute for hyperTuner
+    trainData = "I am not over-written"
+    # trainLoader = None
+    testData = "I am not over-written"
+
 
     @classmethod
     def hyperTuner(cls,
@@ -319,22 +392,40 @@ class myNeural(nn.Module, tune.Trainable):
         Returns:
             tune.Analysis: [description]
         """              
+        loggermyNeuralHyperTunner.debug('Preparing to tune')
         cls.trainData = trainData
+        # init the trainLoader here because rayTune seems to have an issue with DataLoader
+        # cls.trainLoader = DataLoader(cls.trainData, 
+        #                        batch_size= 128, 
+        #                        shuffle=True)
         cls.testData = testData
+        loggermyNeuralHyperTunner.debug('Data assigned')
 
         searchAlg = searchAlg(paramSpace, 
-                                max_concurrent=searchMaxConcurrent, 
+                                # max_concurrent=searchMaxConcurrent, # depreciated
                                 # reward_attr=searchRewardAttr,
                                 mode=searchMode)
+        loggermyNeuralHyperTunner.debug('Search Algo defined')
+
+        # limit the parallel run
+        searchAlg = ConcurrencyLimiter(searchAlg, max_concurrent=searchMaxConcurrent)
+        loggermyNeuralHyperTunner.debug('Max Concurrent set')
+        
         
         scheduler = scheduler(metric = schedulerMetric,
                                 mode = schedulerMode,
                                 grace_period = schedulerGracePeriod)
-        analysis = tune.run(cls.fitTrain,
+        loggermyNeuralHyperTunner.debug('Scheduler ready')
+
+        fitTrain = cls.fitTrainGenerator(trainData, testData)
+
+        loggermyNeuralHyperTunner.debug('Start tuning')
+        analysis = tune.run(fitTrain,
                             num_samples=numSamples,
-                            #search_alg=searchAlg,
+                            search_alg=searchAlg,
                             scheduler=scheduler
         )
+        loggermyNeuralHyperTunner.debug('Tuning completed')
         cls.analysis = analysis
         return analysis
 
