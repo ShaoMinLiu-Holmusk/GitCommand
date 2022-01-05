@@ -1,0 +1,27 @@
+[
+    {
+        "moduleName" : "module1",
+        "path"       : "modules/module1/module1.py",
+        "execute"    : true,
+        "description": "a simple example module",
+        "owner"      : ""
+    }, {
+        "moduleName": "bayTune",
+        "path": "modules/bayTune/bayTune.py",
+        "execute": false,
+        "description": "a simple example module",
+        "owner": ""
+    }, {
+        "moduleName" : "versionedModule",
+        "path"       : "modules/versionedModule/versionedModule.py",
+        "execute"    : false,
+        "description": "a module that tests a versioned library",
+        "owner"      : ""
+    }, {
+        "moduleName" : "celeryCheck",
+        "path"       : "modules/celeryCheck/celeryCheck.py",
+        "execute"    : false,
+        "description": "",
+        "owner"      : ""
+    }
+]

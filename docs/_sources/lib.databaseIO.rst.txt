@@ -1,0 +1,29 @@
+lib.databaseIO package
+======================
+
+Submodules
+----------
+
+lib.databaseIO.pgIO module
+--------------------------
+
+.. automodule:: lib.databaseIO.pgIO
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+lib.databaseIO.sqLiteIO module
+------------------------------
+
+.. automodule:: lib.databaseIO.sqLiteIO
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: lib.databaseIO
+   :members:
+   :undoc-members:
+   :show-inheritance:

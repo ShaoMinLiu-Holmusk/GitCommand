@@ -1,0 +1,7 @@
+TestsNPlayground module
+=======================
+
+.. automodule:: TestsNPlayground
+   :members:
+   :undoc-members:
+   :show-inheritance:
